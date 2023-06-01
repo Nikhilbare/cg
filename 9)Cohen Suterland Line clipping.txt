@@ -1,0 +1,181 @@
+8 Implement Cohen Suterland Line clipping method to clip the line with respect the viewport and window. Use mouse click, keyboard interface
+
+
+
+#include <GL/glut.h>
+#include <iostream>
+
+const int INSIDE = 0; // Bit code for inside
+const int LEFT = 1;   // Bit code for left
+const int RIGHT = 2;  // Bit code for right
+const int BOTTOM = 4; // Bit code for bottom
+const int TOP = 8;    // Bit code for top
+
+float x1, y1, x2, y2; // Line coordinates
+float xmin = 50, ymin = 50, xmax = 300, ymax = 300; // Clipping window coordinates
+
+int computeOutCode(float x, float y)
+{
+    int code = INSIDE;
+
+    if (x < xmin)
+        code |= LEFT;
+    else if (x > xmax)
+        code |= RIGHT;
+
+    if (y < ymin)
+        code |= BOTTOM;
+    else if (y > ymax)
+        code |= TOP;
+
+    return code;
+}
+
+void cohenSutherlandLineClip()
+{
+    int outcode1 = computeOutCode(x1, y1);
+    int outcode2 = computeOutCode(x2, y2);
+    bool accept = false;
+
+    while (true)
+    {
+        if (!(outcode1 | outcode2))
+        {
+            // Both points inside the clipping window
+            accept = true;
+            break;
+        }
+        else if (outcode1 & outcode2)
+        {
+            // Both points outside on the same side
+            break;
+        }
+        else
+        {
+            // Calculate intersection
+            float x, y;
+            int outcodeOut = outcode1 ? outcode1 : outcode2;
+
+            if (outcodeOut & TOP)
+            {
+                // Intersection with top boundary
+                x = x1 + (x2 - x1) * (ymax - y1) / (y2 - y1);
+                y = ymax;
+            }
+            else if (outcodeOut & BOTTOM)
+            {
+                // Intersection with bottom boundary
+                x = x1 + (x2 - x1) * (ymin - y1) / (y2 - y1);
+                y = ymin;
+            }
+            else if (outcodeOut & RIGHT)
+            {
+                // Intersection with right boundary
+                y = y1 + (y2 - y1) * (xmax - x1) / (x2 - x1);
+                x = xmax;
+            }
+            else if (outcodeOut & LEFT)
+            {
+                // Intersection with left boundary
+                y = y1 + (y2 - y1) * (xmin - x1) / (x2 - x1);
+                x = xmin;
+            }
+
+            if (outcodeOut == outcode1)
+            {
+                x1 = x;
+                y1 = y;
+                outcode1 = computeOutCode(x1, y1);
+            }
+            else
+            {
+                x2 = x;
+                y2 = y;
+                outcode2 = computeOutCode(x2, y2);
+            }
+        }
+    }
+
+    if (accept)
+    {
+        glColor3f(0.0, 0.0, 0.0);
+        glBegin(GL_LINES);
+        glVertex2f(x1, y1);
+        glVertex2f(x2, y2);
+        glEnd();
+    }
+}
+
+void display()
+{
+    glClearColor(1.0, 1.0, 1.0, 1.0);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glColor3f(0.0, 0.0, 0.0);
+    glPointSize(1.0);
+
+    // Draw clipping window
+    glColor3f(0.5, 0.5, 0.5);
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(xmin, ymin);
+    glVertex2f(xmax, ymin);
+    glVertex2f(xmax, ymax);
+    glVertex2f(xmin, ymax);
+    glEnd();
+
+    // Draw the original line
+    glColor3f(0.0, 0.0, 0.0);
+    glBegin(GL_LINES);
+    glVertex2f(x1, y1);
+    glVertex2f(x2, y2);
+    glEnd();
+
+    // Clip the line using Cohen-Sutherland algorithm
+    cohenSutherlandLineClip();
+
+    glFlush();
+}
+
+void reshape(int width, int height)
+{
+    glViewport(0, 0, width, height);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(0.0, width, 0.0, height);
+}
+
+void mouse(int button, int state, int x, int y)
+{
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
+    {
+        std::cout << "Clicked at: (" << x << ", " << y << ")" << std::endl;
+
+        if (x1 == 0 && y1 == 0)
+        {
+            x1 = x;
+            y1 = y;
+        }
+        else if (x2 == 0 && y2 == 0)
+        {
+            x2 = x;
+            y2 = y;
+
+            glutPostRedisplay();
+        }
+    }
+}
+
+int main(int argc, char** argv)
+{
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
+    glutInitWindowSize(400, 400);
+    glutCreateWindow("Cohen-Sutherland Line Clipping");
+    glutDisplayFunc(display);
+    glutReshapeFunc(reshape);
+    glutMouseFunc(mouse);
+    glutMainLoop();
+
+    return 0;
+}
+
